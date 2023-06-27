@@ -324,30 +324,35 @@ impl App {
                     resp.request_focus();
                 }
 
-                // register the event of pressing Enter to send the message
+                // register the event of pressing Enter to send the message or pressing
+                // Shift + Enter to create a new line
                 if resp.has_focus()
                     && ui.input(|i| i.key_pressed(egui::Key::Enter))
                     && self.pmt.trim().len() > 1
                 {
-                    if self.conversation.is_none() {
-                        self.conversation = Some(Arc::new(Mutex::new(self.create_conversation())));
+                    //press Shift + Enter to create a new line
+                    if ui.input(|i| i.modifiers.matches(egui::Modifiers::SHIFT)) {
+                        self.pmt.push('\n');
+                    } else {
+                        if self.conversation.is_none() {
+                            self.conversation =
+                                Some(Arc::new(Mutex::new(self.create_conversation())));
+                        }
+
+                        self.history.push(ChatMessage {
+                            role: Role::User,
+                            content: self.pmt.trim().to_owned(),
+                        });
+
+                        tokio::spawn(App::submit_prompt(
+                            ctx.clone(),
+                            self.conversation.clone().unwrap().clone(),
+                            self.pmt.trim().to_owned(),
+                        ));
+                        self.pmt.clear();
                     }
-
-                    self.history.push(ChatMessage {
-                        role: Role::User,
-                        content: self.pmt.trim().to_owned(),
-                    });
-
-                    tokio::spawn(App::submit_prompt(
-                        ctx.clone(),
-                        self.conversation.clone().unwrap().clone(),
-                        self.pmt.trim().to_owned(),
-                    ));
-                    self.pmt.clear();
                 }
             });
-
-            //ui.add_space(10_f32);
         });
     }
 
